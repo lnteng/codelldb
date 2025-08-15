@@ -75,6 +75,7 @@ pub fn debug_server(matches: &ArgMatches) -> Result<(), Error> {
         (true, 0, false)
     };
     let multi_session = matches.is_present("multi-session");
+    let reuse_debugger = matches.is_present("reuse-debugger");
     let auth_token = matches.value_of("auth-token");
 
     let rt = tokio::runtime::Builder::new_multi_thread() //
@@ -88,7 +89,7 @@ pub fn debug_server(matches: &ArgMatches) -> Result<(), Error> {
             debug!("Starting on stdio");
             let stream = stdio_stream::StdioStream::new();
             let framed_stream = dap_codec::DAPCodec::new().framed(stream);
-            run_debug_session(Box::new(framed_stream), &adapter_settings, &python_interface).await;
+            run_debug_session(Box::new(framed_stream), &adapter_settings, &python_interface, false).await;
         } else {
             let localhost = net::Ipv4Addr::new(127, 0, 0, 1);
             let addr = net::SocketAddr::new(localhost.into(), port);
@@ -101,7 +102,7 @@ pub fn debug_server(matches: &ArgMatches) -> Result<(), Error> {
                     tcp_stream.write_all(&auth_header.as_bytes()).await?;
                 }
                 let framed_stream = dap_codec::DAPCodec::new().framed(tcp_stream);
-                run_debug_session(Box::new(framed_stream), &adapter_settings, &python_interface).await;
+                run_debug_session(Box::new(framed_stream), &adapter_settings, &python_interface, false).await;
             } else {
                 let listener = TcpListener::bind(&addr).await?;
                 while {
@@ -109,8 +110,8 @@ pub fn debug_server(matches: &ArgMatches) -> Result<(), Error> {
                     let (tcp_stream, _) = listener.accept().await?;
                     tcp_stream.set_nodelay(true).unwrap();
                     let framed_stream = dap_codec::DAPCodec::new().framed(tcp_stream);
-                    run_debug_session(Box::new(framed_stream), &adapter_settings, &python_interface).await;
-                    multi_session
+                    run_debug_session(Box::new(framed_stream), &adapter_settings, &python_interface, reuse_debugger).await;
+                    multi_session || reuse_debugger
                 } {}
             }
         }
@@ -130,6 +131,7 @@ async fn run_debug_session(
     framed_stream: Box<dyn DAPChannel>,
     adapter_settings: &adapter_protocol::AdapterSettings,
     python_interface: &Option<Arc<python::PythonInterface>>,
+    reuse_debugger: bool,
 ) {
     debug!("New debug session");
     let (dap_session, dap_fut) = dap_session::DAPSession::new(framed_stream);
@@ -137,6 +139,7 @@ async fn run_debug_session(
         dap_session,
         adapter_settings.clone(),
         python_interface.as_ref().map(|i| i.clone()),
+        reuse_debugger
     );
     tokio::spawn(dap_fut);
     session_fut.await;

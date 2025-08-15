@@ -35,7 +35,7 @@ use std::io::{Cursor, LineWriter};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::str;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time;
 
 use adapter_protocol::*;
@@ -109,6 +109,25 @@ impl std::fmt::Display for AsyncResponse {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+static DEBUGGER: OnceLock<Mutex<SBDebugger>> = OnceLock::new();
+fn get_debugger() -> &'static Mutex<SBDebugger> {
+    DEBUGGER.get_or_init(|| {
+        let dbg = SBDebugger::create(false);
+        dbg.set_async_mode(true);
+        Mutex::new(dbg)
+    })
+}
+
+fn get_debugger_with_reuse(reuse: bool) -> SBDebugger {
+    if reuse {
+        get_debugger().lock().unwrap().clone()
+    } else {
+        let debugger = SBDebugger::create(false);
+        debugger.set_async_mode(true);
+        debugger
+    }
+}
+
 unsafe impl Send for DebugSession {}
 
 impl DebugSession {
@@ -116,9 +135,9 @@ impl DebugSession {
         dap_session: DAPSession,
         settings: AdapterSettings,
         python_interface: Option<Arc<PythonInterface>>,
+        reuse_debugger: bool,
     ) -> impl Future {
-        let debugger = SBDebugger::create(false);
-        debugger.set_async_mode(true);
+        let debugger = get_debugger_with_reuse(reuse_debugger);
 
         let (con_reader, con_writer) = pipe().unwrap();
 

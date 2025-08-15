@@ -15,6 +15,7 @@ fn main() -> Result<(), Error> {
         .arg(Arg::with_name("connect").long("connect").takes_value(true))
         .arg(Arg::with_name("auth-token").long("auth-token").takes_value(true))
         .arg(Arg::with_name("multi-session").long("multi-session"))
+        .arg(Arg::with_name("reuse-debugger").long("reuse-debugger"))
         .arg(Arg::with_name("settings").long("settings").takes_value(true))
         .subcommand(
             SubCommand::with_name("terminal-agent").arg(Arg::with_name("connect").long("connect").takes_value(true)),
