@@ -33,6 +33,11 @@ impl SBDebugger {
             return SBDebugger::Create(source_init_files);
         })
     }
+    pub fn delete_target(&mut self, target: &SBTarget) -> bool {
+        cpp!(unsafe [self as "lldb::SBDebugger *", target as "lldb::SBTarget *"] -> bool as "bool" {
+            return self->DeleteTarget(*target);
+        })
+    }
     pub fn destroy(debugger: &SBDebugger) {
         cpp!(unsafe [debugger as "SBDebugger*"] {
             SBDebugger::Destroy(*debugger);

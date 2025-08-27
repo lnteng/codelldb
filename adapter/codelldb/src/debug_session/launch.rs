@@ -296,7 +296,7 @@ impl super::DebugSession {
 
         self.console_message(format!("Attached to process {}", process.process_id()));
 
-        self.terminate_on_disconnect = false;
+        self.terminate_on_disconnect = true;
         self.common_post_run(args.common)?;
 
         Ok(ResponseBody::attach)
@@ -368,6 +368,7 @@ impl super::DebugSession {
                 }
             }
         }
+        self.debugger.delete_target(&self.target);
         Ok(())
     }
 
